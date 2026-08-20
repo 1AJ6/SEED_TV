@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Selfhosting-friendly TLS policy (design doc §9):
+  - HTTPS by default everywhere.
+  - User-added CAs trusted (self-signed certs are common for Jellyfin).
+  - Cleartext HTTP permitted ONLY after the user explicitly acknowledges the
+    risk in-app when adding an http:// server (enforced in UI; platform-level
+    cleartext stays enabled to allow LAN servers).
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+            <certificates src="user" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

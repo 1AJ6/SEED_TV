@@ -1,0 +1,30 @@
+# Android
+*.iml
+.gradle/
+local.properties
+.idea/
+.DS_Store
+build/
+captures/
+.externalNativeBuild/
+.cxx/
+*.apk
+*.aar
+*.aab
+
+# Kotlin
+.kotlin/
+kotlin-daemon-embeddable-*.jar
+
+# Signing
+# Note: Keep debug keys if you want reproducible debug builds,
+# but NEVER commit production release keys.
+# signing/release.keystore
+
+# Log files
+*.log
+
+# Android Studio
+*.jks
+*.keystore
+!signing/seedtv-debug.keystore # Keep the debug one for contributors
