@@ -1,89 +1,51 @@
-# S.E.E.D TV Mobile
+# SEED TV
 
 Created and owned by **Ethan Sayer**.
 
-A native Android client for **Jellyfin** (10.11+) with a **VLC-class player** (libVLC),
-**AniList auto-sync** for anime, and **native SyncPlay**.
+**SEED TV** is a high-performance, native Android client for **Jellyfin** (10.11+) designed for enthusiasts who demand a premium playback experience. By combining the power of the **libVLC** engine with modern Android architecture, SEED TV delivers "Jellyfin, the VLC way."
 
-Licensed under **GPLv3** — see [LICENSE](LICENSE).
+---
 
-## Status
+## The Experience
 
-**M2 — player core** — ✅ v0.1.0-alpha3 APK sideload-ready (`S.E.E.D TV-Mobile-0.1.0-alpha3-arm64-debug.apk`). Alpha1/2 install + login confirmed on device.
+SEED TV isn't just another media browser; it's a specialized tool built for smooth playback, community watching, and deep anime integration.
 
-> **Low-memory build machines:** use `./scripts/build-apk-batched.sh` — it splits the build
-> into 6 short stages with per-stage memory profiles (compile stages need metaspace,
-> DEX stages need heap) so nothing OOMs or exceeds CI step timeouts.
+### 🎬 Professional Playback
+*   **VLC-Class Engine:** Powered by libVLC 3.7.5 for superior codec support and "Direct Play" by default.
+*   **Gesture Mastery:** Intuitive vertical swipes for volume (left) and brightness (right) with real-time level bars and percentage readouts.
+*   **Advanced Controls:** Native support for Picture-in-Picture (PiP), A-B repeat loops, playback speed adjustment, and per-show audio/subtitle delay offsets.
+*   **Episode Navigation:** Dedicated Skip Next/Previous buttons and an automated "Next Episode" countdown card.
 
-| Milestone | Scope | Status |
-|---|---|---|
-| M0 | Modules, DI, theme, server add + auth (password & Quick Connect), session mgmt | ✅ done |
-| M1 | Library browsing (Home, grids, detail, search) | ✅ done (builds + tests green) |
-| M2 | Player core (libVLC playback, Direct Play, resume, progress reporting, VLC-style controls v1) | ✅ done (builds green) |
-| M3 | VLC gesture parity, autoplay, PiP, A-B, delays | ✅ done |
-| M4 | AniList (OAuth link, matching pipeline, scrobbler, sync queue, UI) | ✅ code complete (device testing) |
-| M5 | SyncPlay (time sync, coordinator, drift correction, group UX) | ✅ code complete (device testing) |
-| M6 | Hardening → **first alpha** | ⬜ |
+### 👥 Native SyncPlay
+*   **Real-time Synchronization:** Watch movies and shows together with friends. SEED TV keeps everyone's play/pause state and seek position in perfect sync.
+*   **Waiting Room:** A dedicated lobby where members can chat and see a live thumbnail of what the host is about to start.
+*   **Integrated Chat:** A lightweight, transparent chat overlay that lets you talk to your group without obscuring the media.
 
-Design changes are frozen until after first alpha testing (Ethan Sayer's decision, 2026-08-17).
-See the full design document: `../seedtv-design-doc.md`.
+### 🌸 Anime Enthusiast Features
+*   **AniList Auto-Sync:** Link your AniList account to automatically track your progress.
+*   **Smart Matching:** An advanced detection pipeline that resolves Jellyfin series and seasons to their corresponding AniList entries.
+*   **Sync Queue:** A durable background system ensures your scrobbles are uploaded even if your connection is spotty.
 
-## Architecture
+### 🎨 Personalized for You
+*   **Theme Presets:** Choose from over 10 custom color schemes including *Ember*, *Midnight*, *Cyberpunk*, and *OLED*.
+*   **Layout Control:** Tailor your home screen experience with *Grid*, *List*, or *Compact* viewing modes.
+*   **Clean Identity:** Pure, dark neutral backgrounds designed to make your media posters pop and look incredible on OLED displays.
 
-Single-activity Jetpack Compose app, MVVM, multi-module:
+---
 
-```
-app                    → DI graph, navigation, MainActivity
-core/common            → SResult, dispatchers, app scope
-core/designsystem      → theme (S.E.E.D TV Ember palette — NOT VLC branding)
-core/database          → Room: servers, accounts, mappings, sync queue, history
-core/jellyfin          → SDK wrapper, SessionManager, AuthRepository, SocketHub
-core/playback          → PlayerEngine interface + LibVlcEngine (libVLC 3.7.x)
-core/anilist           → rate limiter, ScrobbleTarget contract, GraphQL client (M4)
-core/matching          → anime detection & AniList resolution pipeline (M4)
-feature/onboarding     → server add, cleartext gate, login, Quick Connect
-feature/library        → browsing (M1)
-feature/player         → VLC-clone UI (M2/M3)
-feature/syncplay       → group UX (M5)
-feature/anilist        → account link, mappings review, sync history (M4)
-```
+## Technical Architecture
 
-**Golden rule:** no libVLC types outside `core/playback`; no Jellyfin SDK types
-outside `core/jellyfin` mappers (enforced in review).
+Built from the ground up using **Jetpack Compose** and **Kotlin**, SEED TV follows a clean, multi-module MVVM structure. 
 
-## Building
+*   **App:** Entry point, navigation graph, and global dependency injection (Hilt).
+*   **Core:** Shared logic for database management (Room), networking (OkHttp), and the VLC/Jellyfin SDK wrappers.
+*   **Features:** Isolated modules for onboarding, library browsing, player UI, and SyncPlay coordination.
 
-Requirements: JDK 17, AGP 8.9, Android SDK 36 (compileSdk 36 is forced by libVLC 3.7.5).
-
-No Android Studio needed — headless build on any Linux x64 box:
-
-```bash
-./scripts/setup-buildenv.sh   # one-time: JDK 17 + Gradle 8.11.1 + Android SDK → ~/.cache/devtools
-./scripts/build-apk.sh        # → app/build/outputs/apk/debug/app-debug.apk (arm64)
-```
-
-### Installing on your phone (sideload)
-
-1. Go to the [Releases](https://github.com/your-username/seedtv-mobile/releases) page on GitHub.
-2. Download the latest `app-debug.apk`.
-3. Open it; allow **Install unknown apps** for your file manager/browser when prompted.
-4. arm64 phones only for debug builds (99% of devices from ~2017+).
-
-## Contributing
-
-As an open-source project under the **GPLv3** license, contributions are welcome!
-
-1. Fork the repository.
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`).
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`).
-4. Push to the branch (`git push origin feature/AmazingFeature`).
-5. Open a Pull Request.
-
-Please ensure your code follows the **Golden rule**: no libVLC types outside `core/playback`; no Jellyfin SDK types outside `core/jellyfin` mappers.
+---
 
 ## Credits & Acknowledgments
 
-S.E.E.D TV Mobile is built on the shoulders of these incredible open-source projects:
+SEED TV is built on the shoulders of these incredible open-source projects:
 
 - **[libVLC](https://www.videolan.org/vlc/libvlc.html)** by **VideoLAN** — The core playback engine.
 - **[Jellyfin SDK](https://github.com/jellyfin/jellyfin-sdk-kotlin)** by the **Jellyfin Project** — Native API integration.
@@ -94,9 +56,8 @@ S.E.E.D TV Mobile is built on the shoulders of these incredible open-source proj
 - **[OkHttp](https://square.github.io/okhttp/)** by **Square, Inc.** — Networking.
 - **[Turbine](https://github.com/cashapp/turbine)** by **Cash App** — Testing library for Kotlin Flows.
 
-## Key product decisions (2026-08-17)
+---
 
-- License: **GPLv3**
-- Min Jellyfin server: **10.11** (hard gate at login)
-- Manual "mark watched" **does** scrobble to AniList (same guard-rail pipeline)
-- VLC behavior cloned; VLC branding/trademarks **not** used
+## License
+
+SEED TV is licensed under the **GPLv3**. See [LICENSE](LICENSE) for details.
