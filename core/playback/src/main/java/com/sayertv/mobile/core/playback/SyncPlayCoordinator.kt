@@ -53,6 +53,7 @@ import org.jellyfin.sdk.model.api.NewGroupRequestDto
 class SyncPlayCoordinator @Inject constructor(
     private val sessionManager: SessionManager,
     private val lanChat: dagger.Lazy<LanChat>,
+    private val p2p: P2PSyncEngine, // Note 4 & 6
     @ApplicationScope private val scope: CoroutineScope,
     @IoDispatcher private val io: CoroutineDispatcher,
 ) {
@@ -114,8 +115,10 @@ class SyncPlayCoordinator @Inject constructor(
         if (mine != null) {
             _activeGroup.value = mine
             _isOwnerFlow.value = true
+            val me = sessionManager.current()?.userName ?: "Host"
+            p2p.start(me)
             startLoops()
-            lanChat.get().start(mine.id, isHost = true, userName = sessionManager.current()?.userName ?: "Host")
+            lanChat.get().start(mine.id, isHost = true, userName = me)
         }
         mine != null
     }
@@ -128,8 +131,10 @@ class SyncPlayCoordinator @Inject constructor(
         if (joined) {
             _activeGroup.value = group
             _isOwnerFlow.value = false
+            val me = sessionManager.current()?.userName ?: "Guest"
+            p2p.start(me)
             startLoops()
-            lanChat.get().start(group.id, isHost = false, userName = sessionManager.current()?.userName ?: "Guest")
+            lanChat.get().start(group.id, isHost = false, userName = me)
         }
         joined
     }
@@ -144,6 +149,7 @@ class SyncPlayCoordinator @Inject constructor(
         runCatching { api?.syncPlayApi?.syncPlayLeaveGroup() }
         stopLoops()
         lanChat.get().stop()
+        p2p.stop()
         _activeGroup.value = null
         _isOwnerFlow.value = false
         anchorPlaying = false
@@ -181,8 +187,12 @@ class SyncPlayCoordinator @Inject constructor(
     private fun sendFrame(payload: String, forceRelay: Boolean) {
         val chat = lanChat.get()
         chat.sendControl(payload)
-        // Relay for cross-network members: always on actions, throttled on heartbeat.
-        if (forceRelay || !chat.isDelivering()) relayViaJellyfin(CTL_HEADER, payload)
+        p2p.send("#CTL#$payload") // Note 4: Send via P2P
+        
+        // Relay for cross-network members who haven't linked via P2P yet.
+        if (forceRelay || !chat.isDelivering()) {
+            relayViaJellyfin(CTL_HEADER, payload)
+        }
     }
 
     // ---- Frames from the host (member side) ----
@@ -230,6 +240,9 @@ class SyncPlayCoordinator @Inject constructor(
                 val t3 = System.currentTimeMillis()
                 peerClockOffsetMs = hostNow - (t0 + t3) / 2
             }
+            "P2P_INFO" -> if (parts.size >= 3) {
+                p2p.addPeer(parts[1], parts[2])
+            }
         }
     }
 
@@ -256,9 +269,11 @@ class SyncPlayCoordinator @Inject constructor(
         if (trimmed.isEmpty()) return
         val chat = lanChat.get()
         chat.send(trimmed)
+        val me = sessionManager.current()?.userName ?: "?"
+        p2p.send("$me|~|$trimmed") // Note 4: Send via P2P
+        
         if (!chat.isDelivering()) {
-            val author = sessionManager.current()?.userName ?: "?"
-            relayViaJellyfin(CHAT_HEADER, author + LanChat.SEP + trimmed)
+            relayViaJellyfin(CHAT_HEADER, me + LanChat.SEP + trimmed)
         }
     }
 
@@ -288,6 +303,19 @@ class SyncPlayCoordinator @Inject constructor(
     private fun startLoops() {
         stopLoops()
         lanChat.get().onControl = ::handleControl
+        p2p.onControl = ::handleControl
+        p2p.onMessage = { author, text -> lanChat.get().receiveRemote(author, text) }
+
+        // Signaling: Broadcast my P2P info every 10s via Jellyfin relay
+        jobs += scope.launch {
+            while (coroutineIsActive && this@SyncPlayCoordinator.isActive) {
+                val me = sessionManager.current()?.userName
+                if (me != null) {
+                    relayViaJellyfin(CTL_HEADER, "P2P_INFO" + F + me + F + p2p.getMyAddressInfo())
+                }
+                delay(10_000)
+            }
+        }
 
         // Jellyfin-relay receive path (cross-network chat + control fallback)
         jobs += scope.launch {
